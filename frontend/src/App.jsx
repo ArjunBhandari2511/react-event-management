@@ -13,7 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateEvent from "./pages/CreateEvent";
 
 const PrivateRoute = ({ element }) => {
-  const isAuthenticated = localStorage.getItem("token");
+  const isAuthenticated = sessionStorage.getItem("token");
   return isAuthenticated ? element : <Navigate to="/login" />;
 };
 
@@ -21,8 +21,8 @@ const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check localStorage for token
-    setIsAuthenticated(!!localStorage.getItem("token"));
+    // Check sessionStorage for token
+    setIsAuthenticated(!!sessionStorage.getItem("token"));
   }, []);
   return (
     <Router>

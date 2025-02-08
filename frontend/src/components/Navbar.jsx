@@ -22,13 +22,13 @@ const Navbar = ({ isAuthenticated, setIsAuthenticated }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
     setIsAuthenticated(false);
     navigate("/");
   };
 
-  // Check if token exists in localStorage
-  const tokenExists = localStorage.getItem("token");
+  // Check if token exists in sessionStorage
+  const tokenExists = sessionStorage.getItem("token");
 
   return (
     <>

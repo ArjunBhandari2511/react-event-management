@@ -14,7 +14,12 @@ import {
 } from "@mui/material";
 import axios from "axios";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUsers, faPencilAlt, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import {
+  faUsers,
+  faPencilAlt,
+  faTrashAlt,
+} from "@fortawesome/free-solid-svg-icons";
+import socket from "../../socket.js";
 
 const Dashboard = () => {
   const [userName, setUserName] = useState("");
@@ -32,13 +37,13 @@ const Dashboard = () => {
   const [deleteEventId, setDeleteEventId] = useState(null);
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user"));
+    const storedUser = JSON.parse(sessionStorage.getItem("user"));
     if (storedUser) {
       setUserName(storedUser.name);
       setUserId(storedUser._id);
     }
 
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     if (token) {
       axios
         .get("http://localhost:5000/api/events/my", {
@@ -52,11 +57,38 @@ const Dashboard = () => {
         .then((response) => setEvents(response.data))
         .catch((error) => console.error("Error fetching events:", error));
     }
+
+    // 🎯 Socket Events
+    socket.on("eventCreated", (newEvent) => {
+      setEvents((prev) => [...prev, newEvent]);
+    });
+
+    socket.on("eventUpdated", (updatedEvent) => {
+      setEvents((prev) =>
+        prev.map((event) =>
+          event._id === updatedEvent._id ? updatedEvent : event
+        )
+      );
+    });
+
+    socket.on("eventDeleted", (deletedEventId) => {
+      setEvents((prev) => prev.filter((event) => event._id !== deletedEventId));
+    });
+
+    return () => {
+      socket.off("eventCreated");
+      socket.off("eventUpdated");
+      socket.off("eventDeleted");
+    };
   }, []);
 
   const handleOpenUpdate = (event) => {
     setCurrentEvent(event);
-    setEventDetails({ name: event.name, description: event.description, image: null });
+    setEventDetails({
+      name: event.name,
+      description: event.description,
+      image: null,
+    });
     setOpen(true);
   };
 
@@ -66,7 +98,7 @@ const Dashboard = () => {
   };
 
   const handleUpdate = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const formData = new FormData();
     formData.append("name", eventDetails.name);
     formData.append("description", eventDetails.description);
@@ -111,7 +143,7 @@ const Dashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     try {
       const response = await axios.delete(
@@ -120,8 +152,9 @@ const Dashboard = () => {
       );
 
       if (response.status === 200) {
-        setMyEvents((prev) => prev.filter((event) => event._id !== deleteEventId));
-        setEvents((prev) => prev.filter((event) => event._id !== deleteEventId));
+        setMyEvents((prev) =>
+          prev.filter((event) => event._id !== deleteEventId)
+        );
         setDeleteModalOpen(false);
       }
     } catch (error) {
@@ -136,7 +169,7 @@ const Dashboard = () => {
   };
 
   const handleJoinEvent = async (eventId) => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     try {
       const response = await axios.post(
@@ -147,7 +180,9 @@ const Dashboard = () => {
 
       if (response.status === 200) {
         alert("You have successfully joined the event!");
-        const updatedEvents = await axios.get("http://localhost:5000/api/events");
+        const updatedEvents = await axios.get(
+          "http://localhost:5000/api/events"
+        );
         setEvents(updatedEvents.data);
       }
     } catch (error) {
@@ -158,9 +193,14 @@ const Dashboard = () => {
 
   return (
     <Container sx={{ marginTop: "50px" }}>
-      <Typography variant="h4" sx={{ marginBottom: "20px", fontWeight: "bold" }}>
+      <Typography
+        variant="h4"
+        sx={{ marginBottom: "20px", fontWeight: "bold" }}
+      >
         Welcome, {userName} 👋
       </Typography>
+
+      {/* My Events */}
 
       <Typography variant="h5" sx={{ marginBottom: "10px" }}>
         Your Events
@@ -173,7 +213,9 @@ const Dashboard = () => {
                 <CardMedia
                   component="img"
                   height="140"
-                  image={event.imageUrl || "https://via.placeholder.com/345x140"}
+                  image={
+                    event.imageUrl || "https://via.placeholder.com/345x140"
+                  }
                   alt={event.name}
                 />
                 <CardContent>
@@ -181,7 +223,11 @@ const Dashboard = () => {
                   <Typography variant="body2" color="text.secondary">
                     {event.description}
                   </Typography>
-                  <Badge badgeContent={event.attendees?.length || 0} color="primary" sx={{ marginTop: 1 }}>
+                  <Badge
+                    badgeContent={event.attendees?.length || 0}
+                    color="primary"
+                    sx={{ marginTop: 1 }}
+                  >
                     <FontAwesomeIcon icon={faUsers} color="action" />
                   </Badge>
                   <Button
@@ -209,12 +255,16 @@ const Dashboard = () => {
             </Grid>
           ))
         ) : (
-          <Typography variant="body1" sx={{ marginLeft: "30px", marginTop: "15px" }}>
+          <Typography
+            variant="body1"
+            sx={{ marginLeft: "30px", marginTop: "15px" }}
+          >
             No events created by you yet.
           </Typography>
         )}
       </Grid>
 
+      {/* All Events */}
       <Typography variant="h5" sx={{ marginBottom: "10px" }}>
         All Events
       </Typography>
@@ -226,7 +276,9 @@ const Dashboard = () => {
                 <CardMedia
                   component="img"
                   height="140"
-                  image={event.imageUrl || "https://via.placeholder.com/345x140"}
+                  image={
+                    event.imageUrl || "https://via.placeholder.com/345x140"
+                  }
                   alt={event.name}
                 />
                 <CardContent>
@@ -235,57 +287,43 @@ const Dashboard = () => {
                     {event.description}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    <strong>Date & Time:</strong> {new Date(event.dateTime).toLocaleString()}
+                    <strong>Date & Time:</strong>{" "}
+                    {new Date(event.dateTime).toLocaleString()}
                   </Typography>
-                  <Badge badgeContent={event.attendees?.length || 0} color="primary" sx={{ marginTop: 1 }}>
+                  <Badge
+                    badgeContent={event.attendees?.length || 0}
+                    color="primary"
+                    sx={{ marginTop: 1 }}
+                  >
                     <FontAwesomeIcon icon={faUsers} color="action" />
                   </Badge>
-                  {event.createdBy._id !== userId && (
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      fullWidth
-                      sx={{ marginTop: "15px" }}
-                      onClick={() => handleJoinEvent(event._id)}
-                      disabled={event.attendees?.includes(userId)}
-                    >
-                      {event.attendees?.includes(userId) ? "Already Joined" : "Join Event"}
-                    </Button>
-                  )}
-                  {event.createdBy._id === userId && (
-                    <>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        fullWidth
-                        sx={{ marginTop: "15px" }}
-                        onClick={() => handleOpenUpdate(event)}
-                        startIcon={<FontAwesomeIcon icon={faPencilAlt} />}
-                      >
-                        Update Event
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        fullWidth
-                        sx={{ marginTop: "10px" }}
-                        onClick={() => handleOpenDelete(event._id)}
-                        startIcon={<FontAwesomeIcon icon={faTrashAlt} />}
-                      >
-                        Delete Event
-                      </Button>
-                    </>
-                  )}
+
+                  {/* Always Show Join Button */}
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    fullWidth
+                    sx={{ marginTop: "15px" }}
+                    onClick={() => handleJoinEvent(event._id)}
+                    disabled={event.attendees?.includes(userId)}
+                  >
+                    Join Event
+                  </Button>
                 </CardContent>
               </Card>
             </Grid>
           ))
         ) : (
-          <Typography variant="body1" sx={{ marginLeft: "30px", marginTop: "15px" }}>
+          <Typography
+            variant="body1"
+            sx={{ marginLeft: "30px", marginTop: "15px" }}
+          >
             No events available yet.
           </Typography>
         )}
       </Grid>
+
+      {/* Modal For Update */}
 
       <Modal open={open} onClose={handleCloseUpdate}>
         <Box
@@ -307,7 +345,9 @@ const Dashboard = () => {
             label="Event Name"
             variant="outlined"
             value={eventDetails.name}
-            onChange={(e) => setEventDetails({ ...eventDetails, name: e.target.value })}
+            onChange={(e) =>
+              setEventDetails({ ...eventDetails, name: e.target.value })
+            }
             sx={{ marginBottom: 2 }}
           />
           <TextField
@@ -317,20 +357,31 @@ const Dashboard = () => {
             multiline
             rows={4}
             value={eventDetails.description}
-            onChange={(e) => setEventDetails({ ...eventDetails, description: e.target.value })}
+            onChange={(e) =>
+              setEventDetails({ ...eventDetails, description: e.target.value })
+            }
             sx={{ marginBottom: 2 }}
           />
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setEventDetails({ ...eventDetails, image: e.target.files[0] })}
+            onChange={(e) =>
+              setEventDetails({ ...eventDetails, image: e.target.files[0] })
+            }
             style={{ marginBottom: "16px" }}
           />
-          <Button variant="contained" color="primary" fullWidth onClick={handleUpdate}>
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            onClick={handleUpdate}
+          >
             Save Changes
           </Button>
         </Box>
       </Modal>
+
+      {/* Modal for Delete */}
 
       <Modal open={deleteModalOpen} onClose={handleCloseDeleteModal}>
         <Box

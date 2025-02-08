@@ -35,8 +35,8 @@ const Login = ({ setIsAuthenticated }) => {
 
       if (response.status === 200) {
         const { token, user } = response.data;
-        localStorage.setItem("token", token); // Save token in localStorage
-        localStorage.setItem("user", JSON.stringify(user));
+        sessionStorage.setItem("token", token); // Save token in sessionStorage
+        sessionStorage.setItem("user", JSON.stringify(user));
         setIsAuthenticated(true);
         setSuccess(true);
         setTimeout(() => navigate("/dashboard"), 1500); // Redirect after success

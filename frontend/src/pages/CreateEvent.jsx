@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Container, TextField, Button, Typography, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import socket from "../../socket.js";
 
 const CreateEvent = () => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const CreateEvent = () => {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem("token"); // Get auth token
+      const token = sessionStorage.getItem("token"); // Get auth token
       if (!token) {
         alert("Unauthorized! Please login.");
         navigate("/login");
